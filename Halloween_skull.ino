@@ -13,7 +13,7 @@
 #define PIN_LED_R    5
 #define PIN_PING     2
 #define PIN_ECHO     3
-#define PIN_MOTOR   14
+#define PIN_MOTOR   14     /* aka Analog 0 pin */
 #define PIN_AUDIO   10
 
 // Global Objects
@@ -31,6 +31,10 @@ int   pos = 0;    // variable to store the servo position
 int   loop_cnt = 0;
 bool  bShake = false;
 bool  bAudio = false;
+int   apc = 0;
+int   vol=0; //volume 0=MAX, 7=min
+int   startAddr=0x10;
+int   endAddr =0x2DF;
 
 volatile unsigned long lastUpdate = 0; // last update of position
 volatile int      iShakeStep = -1;
@@ -72,14 +76,6 @@ void setup(){
     OCR0A = 0xAF;
     TIMSK0 |= _BV(OCIE0A);
 
-    /* select the correct sound...*/
-    chip.fwd();
-    delay(500);
-    chip.fwd();
-    delay(500);
-    chip.fwd();
-    delay(500);
-
     Serial.println("Sketch is starting up");
   }
 
@@ -93,28 +89,28 @@ void loop(){
 
   // The PING))) is triggered by a HIGH pulse of 2 or more microseconds.
   // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
-  digitalWrite(PING, LOW);
+  digitalWrite(PIN_PING, LOW);
 
   delay(3);
-  digitalWrite(PING, HIGH);
+  digitalWrite(PIN_PING, HIGH);
 
   delay(3);
-  digitalWrite(PING, LOW);
+  digitalWrite(PIN_PING, LOW);
 
-  duration = pulseIn(ECHO, HIGH);
+  duration = pulseIn(PIN_ECHO, HIGH);
 
   delay(3);
   // convert the time into a distance
   cm = microsecondsToCentimeters(duration);
-  digitalWrite(PING, LOW);
+  digitalWrite(PIN_PING, LOW);
 
   delay(3);
-  digitalWrite(PING, HIGH);
+  digitalWrite(PIN_PING, HIGH);
 
   delay(3);
-  digitalWrite(PING, LOW);
+  digitalWrite(PIN_PING, LOW);
 
-  duration = pulseIn(ECHO, HIGH);
+  duration = pulseIn(PIN_ECHO, HIGH);
 
   delay(3);
   // convert the time into a distance
@@ -127,9 +123,11 @@ void loop(){
   Serial.println();
 
   if( (cm < 140) && !bShake ) {
-
-    bShake = true;
-    bAudio = true;
+  
+    /* Power Up the Audio shield */
+      chip.pu();
+      bShake = true;
+      bAudio = true;
   }
   
   delay(700);
@@ -192,6 +190,8 @@ void ArmShakeUpdate( unsigned long curMillis ){
      
     if( bAudio == true)    
       chip.play();
+      Serial.print("triggered chip.play()");
+      Serial.println();
   }
   
   if( iShakeCount >= SERVO_SHAKE_COUNT ) {
@@ -200,6 +200,11 @@ void ArmShakeUpdate( unsigned long curMillis ){
     bShake = false;
     iShakeCount = 0;
     iShakeStep = -1;
+
+    bAudio = false;
+    /* Power down the audio device */   
+    chip.stop();
+    delay(500);
 
     digitalWrite(PIN_LED_L, LOW);
     digitalWrite(PIN_LED_R, LOW);  
@@ -215,8 +220,8 @@ SIGNAL(TIMER0_COMPA_vect) {
   if( bShake == true) {
     
     if( iShakeStep == -1 ) {
-      digitalWrite(LED_L, HIGH);
-      digitalWrite(LED_R, HIGH);
+      digitalWrite(PIN_LED_L, HIGH);
+      digitalWrite(PIN_LED_R, HIGH);
       lastUpdate = currentMillis;
       servo_pos += SERVO_ANGLE_SHAKE;
       myservo.write(servo_pos);
