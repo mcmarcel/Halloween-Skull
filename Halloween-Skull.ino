@@ -16,6 +16,8 @@
 #define PIN_MOTOR   14
 #define PIN_AUDIO   10
 
+#define DEBUG_AUDIO 1
+
 // Global Objects
 Servo myservo;  // create servo object to control a servo
 ISD1700 chip(PIN_AUDIO); // Initialize chipcorder (Audio)
@@ -74,6 +76,9 @@ void setup(){
     OCR0A = 0xAF;
     TIMSK0 |= _BV(OCIE0A);
 
+    // Audio power-up
+    chip.pu();
+    delay(500);
     /* select the correct sound...*/
     chip.fwd();
     delay(500);
@@ -133,6 +138,9 @@ void loop(){
     bShake = true;
     bAudio = true;
   }
+
+  if( DEBUG_AUDIO )
+    chip.play();
   
   delay(700);
 
